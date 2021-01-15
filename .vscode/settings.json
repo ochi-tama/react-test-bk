@@ -1,0 +1,4 @@
+{
+  "terminal.integrated.shell.linux": "/bin/ash",
+  "eslint.workingDirectories": [ "./functions"]
+}
