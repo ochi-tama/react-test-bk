@@ -1,9 +1,89 @@
 rules_version = '2';
 service cloud.firestore {
+
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if
-          request.time < timestamp.date(2021, 2, 14);
+    match /users/{uid} {
+      // 本人か管理者ユーザーはユーザー情報を読み取れる
+      // アカウント作成は本人のみ
+      // アカウント更新は本人と管理者
+      // アカウント削除は管理者のみ
+      function isAuthenticated() {
+        return request.auth != null
+          && request.auth.uid == uid
+      }
+
+      function isSameGroupAdmin(message) {
+        return request.auth != null && request.auth.token.role=="admin"
+          && request.auth.token.tenant.hasAny(message.tenant)
+      }
+
+      function isValidDocument(message) {
+        return message.size() == 8
+          && 'name' in message && message.name is string
+          && 'email' in message && message.email is string
+          && 'role' in message && message.role is string
+          && 'affilication' in message
+            && (message.affilication == null || message.affilication is string)
+          && 'tenant' in message && message.tenant is list
+          && 'createdAt' in message && message.createdAt is timestamp
+          && 'updatedAt' in message && message.updatedAt is timestamp
+          && 'lastLoginDate' in message && message.updatedAt is timestamp
+      }
+
+
+      allow read: if isAuthenticated() || isSameGroupAdmin(resource.data)
+      // TODO: createとupdateにデータバリデーションのルールを追加する
+      allow create: if isAuthenticated() && isValidDocument(request.resource.data);
+      allow update: if (isAuthenticated() || isSameGroupAdmin(resource.data))
+        && isValidDocument(request.resource.data)
+      allow delete: if isSameGroupAdmin(resource.data);
     }
+
+    match /documents/{id} {
+      // 管理者ユーザーのみ書き込み・更新・削除可能
+      // 同じテナントのドキュメントのみ
+      // 一般ユーザは書き込むだけ
+      function isAuthenticatedAdmin() {
+        return request.auth != null
+          && request.auth.token.role == "admin"
+      }
+
+      function isValidDocument(message) {
+        return message.size() == 11
+          && 'name' in message && message.name is string
+          && 'tags' in message && message.tags is list
+          && 'size' in message && message.size is int
+          && 'filePath' in message && message.filePath is string
+          && 'pdfPath' in message
+            && (message.pdfPath == null || message.pdfPath is string)
+          && 'type' in message && message.type is string
+          && 'tenant' in message && message.tenant is list
+          && 'createdAt' in message && message.createdAt is timestamp
+          && 'updatedAt' in message && message.updatedAt is timestamp
+          && 'lastUpdatedBy' in message && message.lastUpdatedBy is map
+            && 'name' in message.lastUpdatedBy && message.lastUpdatedBy.name is string
+            && 'ref' in message.lastUpdatedBy && message.lastUpdatedBy.ref is path
+          && 'analyzeStatus' in message && message.analyzeStatus is map
+            && 'managedId' in message.analyzeStatus
+              && (message.analyzeStatus.managedId == null || message.analyzeStatus.managedId is string)
+            && 'htmlPath' in message.analyzeStatus
+              && (message.analyzeStatus.htmlPath == null || message.analyzeStatus.htmlPath is string)
+            && 'parsedHtmlPath' in message.analyzeStatus
+              && (message.analyzeStatus.parsedHtmlPath == null || message.analyzeStatus.parsedHtmlPath is string)
+      }
+
+      // TODO: データのバリデーションを追記する
+      allow create: if isAuthenticatedAdmin() && isValidDocument(request.resource.data);
+      allow read: if request.auth != null && request.auth.token.tenant.hasAny(resource.data.tenant);
+      allow update: if isAuthenticatedAdmin() && request.auth.token.tenant.hasAny(resource.data.tenant)
+        && isValidDocument(request.resource.data)
+        // 作成日は変更されない
+        && request.resource.data.createdAt == resource.data.createdAt
+        // 更新日はサーバーの現在時刻で更新される
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isAuthenticatedAdmin() && request.auth.token.tenant.hasAny(resource.data.tenant);
+    }
+
+
   }
 }
