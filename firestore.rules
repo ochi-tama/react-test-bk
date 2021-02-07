@@ -18,13 +18,15 @@ service cloud.firestore {
       }
 
       function isValidDocument(message) {
-        return message.size() == 8
+        return message.size() == 9
           && 'name' in message && message.name is string
           && 'email' in message && message.email is string
           && 'role' in message && message.role is string
           && 'affilication' in message
             && (message.affilication == null || message.affilication is string)
           && 'tenant' in message && message.tenant is list
+          && 'photoURL' in message
+            && (message.photoURL == null || message.photoURL is string)
           && 'createdAt' in message && message.createdAt is timestamp
           && 'updatedAt' in message && message.updatedAt is timestamp
           && 'lastLoginDate' in message && message.updatedAt is timestamp

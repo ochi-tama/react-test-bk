@@ -1,10 +1,11 @@
 import firebase from 'firebase/app'
 import 'firebase/firestore'
 type User = {
-  name: string
-  email: string
+  name?: string
+  email?: string
   role: string
   affilication?: string | null
+  photoURL?: string | null
   tenant: string[]
   createdAt: firebase.firestore.FieldValue
   updatedAt: firebase.firestore.FieldValue

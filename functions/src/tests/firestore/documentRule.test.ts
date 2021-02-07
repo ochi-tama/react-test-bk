@@ -1,16 +1,17 @@
+/* eslint-disable jest/expect-expect */
 /* eslint-disable jest/no-commented-out-tests */
 import * as firebase from '@firebase/rules-unit-testing'
-import { Document } from '../Schema/Document'
+import { Document } from '../../Schema/Document'
 import {
   testDoc1 /*,testDocumentList*/,
   testDoc2,
   TestDocument,
-} from './data/testDocument'
+} from '../data/testDocument'
 import {
   mainAdmin,
   mainUser,
   otherAdmin /*, subAdmin, subUser*/,
-} from './data/testUser'
+} from '../data/testUser'
 import {
   createUserDocument,
   generateCoverageHtml,
@@ -19,7 +20,7 @@ import {
   getFirestoreByUserAndProjectId,
   initUser,
   loadFirestoreRules,
-} from './util'
+} from '../utils'
 
 process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080'
 const PROJECT_ID = 'test-document-project'
