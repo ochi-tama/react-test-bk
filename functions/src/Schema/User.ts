@@ -6,7 +6,7 @@ type User = {
   role: string
   affilication?: string | null
   photoURL?: string | null
-  tenant: string[]
+  workspaces?: string[] | null // workspaceのID Referenceは一旦使わない
   createdAt: firebase.firestore.FieldValue
   updatedAt: firebase.firestore.FieldValue
   lastLoginDate: firebase.firestore.FieldValue

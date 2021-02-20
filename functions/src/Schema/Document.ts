@@ -7,7 +7,6 @@ type Document = {
   filePath: string
   pdfPath?: string | null
   type: string // docx, pptx, pdf
-  tenant: string[]
   createdAt: firebase.firestore.FieldValue
   updatedAt: firebase.firestore.FieldValue
   lastUpdatedBy: {

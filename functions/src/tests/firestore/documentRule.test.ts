@@ -7,17 +7,20 @@ import {
   testDoc2,
   TestDocument,
 } from '../data/testDocument'
+import { WorkspaceA, WorkspaceB } from '../data/testWorkspace'
 import {
   mainAdmin,
   mainUser,
   otherAdmin /*, subAdmin, subUser*/,
 } from '../data/testUser'
 import {
-  createUserDocument,
+  createUserData,
+  initWorkspace,
   generateCoverageHtml,
   getFiresbaseByUserAndProjectId,
   // getAdminFirebase,
   getFirestoreByUserAndProjectId,
+  insertWorkspaceDocumentByAdmin,
   initUser,
   loadFirestoreRules,
 } from '../utils'
@@ -45,6 +48,7 @@ afterAll(async () => {
 
 const insertDocument = async (
   user: initUser,
+  wid: string,
   { uid, ...data }: TestDocument
 ) => {
   const app = getFirebaseByUser(user)
@@ -52,30 +56,35 @@ const insertDocument = async (
   // TODO: 後でmockをつかう
   const insertData: Document = {
     ...data,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    // 本来はreactなどのstateから取得する
-    tenant: user.tenant as string[],
     lastUpdatedBy: {
       name: user.uid,
       ref: userRef,
     },
     analyzeStatus: { ...data.analyzeStatus },
   }
-  await app.firestore().collection(`documents`).doc(uid).set(insertData)
+  await app
+    .firestore()
+    .doc(`workspaces/${wid}/documents/${uid}`)
+    .set(insertData)
+}
+
+const insertWorkspace = async (data: initWorkspace) => {
+  await insertWorkspaceDocumentByAdmin(PROJECT_ID, data)
 }
 
 const insertUser = async () => {
   const db1 = getFirebaseByUser(mainUser).firestore()
-  await db1
-    .collection('users')
-    .doc(mainUser.uid)
-    .set(createUserDocument(mainUser))
+  await db1.collection('users').doc(mainUser.uid).set(createUserData(mainUser))
   const db2 = getFirebaseByUser(mainAdmin).firestore()
   await db2
     .collection('users')
     .doc(mainAdmin.uid)
-    .set(createUserDocument(mainAdmin))
+    .set(createUserData(mainAdmin))
+  const db3 = getFirebaseByUser(otherAdmin).firestore()
+  await db3
+    .collection('users')
+    .doc(otherAdmin.uid)
+    .set(createUserData(otherAdmin))
 }
 
 describe('Document コレクションの読み取り・書き取りオペレーションのテスト', () => {
@@ -84,6 +93,7 @@ describe('Document コレクションの読み取り・書き取りオペレー�
       // Adminを使うとFieldValueでエラーになるので暫定措置
       // const db = getAdminFirebase(PROJECT_ID).firestore()
       await insertUser()
+      await insertWorkspace(WorkspaceA)
     })
 
     afterEach(async () => {
@@ -91,10 +101,19 @@ describe('Document コレクションの読み取り・書き取りオペレー�
     })
 
     test('通常ユーザーはDocumentコレクションに書き込めない', async () => {
-      await firebase.assertFails(insertDocument(mainUser, testDoc1))
+      await firebase.assertFails(
+        insertDocument(mainUser, WorkspaceA.name, testDoc1)
+      )
     })
     test('管理者ユーザーはDocumentコレクションに書き込める', async () => {
-      await firebase.assertSucceeds(insertDocument(mainAdmin, testDoc1))
+      await firebase.assertSucceeds(
+        insertDocument(mainAdmin, WorkspaceA.name, testDoc1)
+      )
+    })
+    test('他Workspaceの管理者ユーザーはDocumentコレクションに書き込める', async () => {
+      await firebase.assertFails(
+        insertDocument(otherAdmin, WorkspaceA.name, testDoc1)
+      )
     })
   })
 
@@ -103,30 +122,51 @@ describe('Document コレクションの読み取り・書き取りオペレー�
       // Adminを使うとFieldValueでエラーになるので暫定措置
       // const db = getAdminFirebase(PROJECT_ID).firestore()
       await insertUser()
-      await insertDocument(mainAdmin, testDoc1)
-      await insertDocument(otherAdmin, testDoc2)
+      await insertWorkspace(WorkspaceA)
+      await insertWorkspace(WorkspaceB)
+      await insertDocument(mainAdmin, WorkspaceA.name, testDoc1)
+      await insertDocument(otherAdmin, WorkspaceB.name, testDoc2)
     })
+
     afterAll(async () => {
       await firebase.clearFirestoreData({ projectId: PROJECT_ID })
     })
+
     test('非管理者ユーザーは同じテナントのDocumentコレクション読み取れる', async () => {
       const db = getFirestoreByUser(mainUser)
-      const doc = db.collection('documents').doc(testDoc1.uid)
+      const doc = db
+        .collection('workspaces')
+        .doc(WorkspaceA.name)
+        .collection('documents')
+        .doc(testDoc1.name)
       await firebase.assertSucceeds(doc.get())
     })
+
     test('非管理者ユーザーは別のテナントのDocumentコレクション読み取れない', async () => {
       const db = getFirestoreByUser(mainUser)
-      const doc = db.collection('documents').doc(testDoc2.uid)
+      const doc = db
+        .collection('workspaces')
+        .doc(WorkspaceB.name)
+        .collection('documents')
+        .doc(testDoc2.name)
       await firebase.assertFails(doc.get())
     })
     test('管理者ユーザーは同じテナントのDocumentコレクション読み取れる', async () => {
       const db = getFirestoreByUser(mainAdmin)
-      const doc = db.collection('documents').doc(testDoc1.uid)
+      const doc = db
+        .collection('workspaces')
+        .doc(WorkspaceA.name)
+        .collection('documents')
+        .doc(testDoc1.name)
       await firebase.assertSucceeds(doc.get())
     })
     test('管理者ユーザーは別のテナントのDocumentコレクション読み取れない', async () => {
       const db = getFirestoreByUser(mainUser)
-      const doc = db.collection('documents').doc(testDoc2.uid)
+      const doc = db
+        .collection('workspaces')
+        .doc(WorkspaceB.name)
+        .collection('documents')
+        .doc(testDoc2.name)
       await firebase.assertFails(doc.get())
     })
   })
@@ -136,8 +176,10 @@ describe('Document コレクションの読み取り・書き取りオペレー�
       // Adminを使うとFieldValueでエラーになるので暫定措置
       // const db = getAdminFirebase(PROJECT_ID).firestore()
       await insertUser()
-      await insertDocument(mainAdmin, testDoc1)
-      await insertDocument(otherAdmin, testDoc2)
+      await insertWorkspace(WorkspaceA)
+      await insertWorkspace(WorkspaceB)
+      await insertDocument(mainAdmin, WorkspaceA.name, testDoc1)
+      await insertDocument(otherAdmin, WorkspaceB.name, testDoc2)
     })
     afterEach(async () => {
       await firebase.clearFirestoreData({ projectId: PROJECT_ID })
@@ -151,56 +193,80 @@ describe('Document コレクションの読み取り・書き取りオペレー�
     test('非管理者ユーザーは同じテナントのDocumentコレクションを更新できない', async () => {
       const db = getFirestoreByUser(mainUser)
       await firebase.assertFails(
-        db.doc(`/documents/${testDoc1.uid}`).update(updatedData)
+        db
+          .doc(`/workspaces/${WorkspaceA.name}/documents/${testDoc1.uid}`)
+          .update(updatedData)
       )
     })
     test('非管理者ユーザーは別のテナントのDocumentコレクションを更新できない', async () => {
       const db = getFirestoreByUser(mainUser)
       await firebase.assertFails(
-        db.doc(`/documents/${testDoc1.uid}`).update(updatedData)
+        db
+          .doc(`/workspaces/${WorkspaceB.name}/documents/${testDoc2.uid}`)
+          .update(updatedData)
       )
     })
     test('管理者ユーザーは同じテナントのDocumentコレクションを更新できる', async () => {
       const db = getFirestoreByUser(mainAdmin)
       await firebase.assertSucceeds(
-        db.doc(`/documents/${testDoc1.uid}`).update(updatedData)
+        db
+          .doc(`/workspaces/${WorkspaceA.name}/documents/${testDoc1.uid}`)
+          .update(updatedData)
       )
     })
     test('管理者ユーザーは別のテナントのDocumentコレクションを更新できない', async () => {
       const db = getFirestoreByUser(mainAdmin)
       await firebase.assertFails(
-        db.doc(`/documents/${testDoc2.uid}`).update(updatedData)
+        db
+          .doc(`/workspaces/${WorkspaceB.name}/documents/${testDoc2.uid}`)
+          .update(updatedData)
       )
     })
   })
-
   describe('管理者ユーザーのみ同じテナントに属するドキュメントを削除できる', () => {
     beforeEach(async () => {
       await insertUser()
-      await insertDocument(mainAdmin, testDoc1)
-      await insertDocument(otherAdmin, testDoc2)
+      await insertWorkspace(WorkspaceA)
+      await insertWorkspace(WorkspaceB)
+      await insertDocument(mainAdmin, WorkspaceA.name, testDoc1)
+      await insertDocument(otherAdmin, WorkspaceB.name, testDoc2)
     })
+
     afterEach(async () => {
       await firebase.clearFirestoreData({ projectId: PROJECT_ID })
     })
 
     test('非管理者ユーザーは同じテナントのDocumentコレクションを削除できない', async () => {
       const db = getFirestoreByUser(mainUser)
-      await firebase.assertFails(db.doc(`/documents/${testDoc1.uid}`).delete())
+      await firebase.assertFails(
+        db
+          .doc(`/workspaces/${WorkspaceA.name}/documents/${testDoc1.uid}`)
+          .delete()
+      )
     })
     test('非管理者ユーザーは別のテナントのDocumentコレクションを削除できない', async () => {
       const db = getFirestoreByUser(mainUser)
-      await firebase.assertFails(db.doc(`/documents/${testDoc1.uid}`).delete())
+      await firebase.assertFails(
+        db
+          .doc(`/workspaces/${WorkspaceB.name}/documents/${testDoc1.uid}`)
+          .delete()
+      )
     })
     test('管理者ユーザーは同じテナントのDocumentコレクションを削除できる', async () => {
       const db = getFirestoreByUser(mainAdmin)
       await firebase.assertSucceeds(
-        db.doc(`/documents/${testDoc1.uid}`).delete()
+        db
+          .doc(`/workspaces/${WorkspaceA.name}/documents/${testDoc1.uid}`)
+          .delete()
       )
     })
     test('管理者ユーザーは別のテナントのDocumentコレクションを削除できない', async () => {
       const db = getFirestoreByUser(mainAdmin)
-      await firebase.assertFails(db.doc(`/documents/${testDoc2.uid}`).delete())
+      await firebase.assertFails(
+        db
+          .doc(`/workspaces/${WorkspaceB.name}/documents/${testDoc2.uid}`)
+          .delete()
+      )
     })
   })
 })

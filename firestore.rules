@@ -1,6 +1,5 @@
 rules_version = '2';
 service cloud.firestore {
-
   match /databases/{database}/documents {
     match /users/{uid} {
       // 本人か管理者ユーザーはユーザー情報を読み取れる
@@ -13,8 +12,9 @@ service cloud.firestore {
       }
 
       function isSameGroupAdmin(message) {
-        return request.auth != null && request.auth.token.role=="admin"
-          && request.auth.token.tenant.hasAny(message.tenant)
+        return request.auth != null
+          && request.auth.token.role=="admin"
+          && request.auth.token.workspaces.hasAny(message.workspaces)
       }
 
       function isValidDocument(message) {
@@ -24,7 +24,7 @@ service cloud.firestore {
           && 'role' in message && message.role is string
           && 'affilication' in message
             && (message.affilication == null || message.affilication is string)
-          && 'tenant' in message && message.tenant is list
+          && 'workspaces' in message && message.workspaces is list
           && 'photoURL' in message
             && (message.photoURL == null || message.photoURL is string)
           && 'createdAt' in message && message.createdAt is timestamp
@@ -86,6 +86,88 @@ service cloud.firestore {
       allow delete: if isAuthenticatedAdmin() && request.auth.token.tenant.hasAny(resource.data.tenant);
     }
 
+    match /workspaces/{workspaceName} {
+      function isAuthenticatedWorkspaceMember() {
+        return request.auth != null
+          && workspaceName in request.auth.token.workspaces
+      }
 
+      function isAuthenticatedWorkspaceAdmin() {
+        return request.auth != null
+          && request.auth.token.role == "admin"
+          && workspaceName in request.auth.token.workspaces
+      }
+
+      function isValidDocument(message) {
+        return message.size() == 4
+          && 'name' in message && message.name is string
+          && 'member_num' in message && message.member_num is int
+          && 'createdAt' in message && message.createdAt is timestamp
+          && 'updatedAt' in message && message.updatedAt is timestamp
+      }
+
+      allow create: if false;
+      allow read: if isAuthenticatedWorkspaceMember();
+      allow update: if isAuthenticatedWorkspaceAdmin() && isValidDocument(request.resource.data);
+      allow delete: if false;
+
+      match /documents/{id} {
+        // 管理者ユーザーのみ書き込み・更新・削除可能
+        // 同じテナントのドキュメントのみ
+        // 一般ユーザは書き込むだけ
+        function isAuthenticatedAdmin() {
+          return request.auth != null
+            && request.auth.token.role == "admin"
+        }
+
+        function workspacePath() {
+          return /databases/$(database)/documents/workspaces/$(workspaceName)
+        }
+
+        function existedWorkSpace() {
+          return exists(workspacePath())
+        }
+
+        function authorizedWorkspace() {
+          return workspaceName in request.auth.token.workspaces
+        }
+
+        function isValidDocument(message) {
+          return message.size() == 10
+            && 'name' in message && message.name is string
+            && 'tags' in message && message.tags is list
+            && 'size' in message && message.size is int
+            && 'filePath' in message && message.filePath is string
+            && 'pdfPath' in message
+              && (message.pdfPath == null || message.pdfPath is string)
+            && 'type' in message && message.type is string
+            && 'createdAt' in message && message.createdAt is timestamp
+            && 'updatedAt' in message && message.updatedAt is timestamp
+            && 'lastUpdatedBy' in message && message.lastUpdatedBy is map
+              && 'name' in message.lastUpdatedBy && message.lastUpdatedBy.name is string
+              && 'ref' in message.lastUpdatedBy && message.lastUpdatedBy.ref is path
+            && 'analyzeStatus' in message && message.analyzeStatus is map
+              && 'managedId' in message.analyzeStatus
+                && (message.analyzeStatus.managedId == null || message.analyzeStatus.managedId is string)
+              && 'htmlPath' in message.analyzeStatus
+                && (message.analyzeStatus.htmlPath == null || message.analyzeStatus.htmlPath is string)
+              && 'parsedHtmlPath' in message.analyzeStatus
+                && (message.analyzeStatus.parsedHtmlPath == null || message.analyzeStatus.parsedHtmlPath is string)
+        }
+
+        // TODO: データのバリデーションを追記する
+        allow create: if isAuthenticatedAdmin() && existedWorkSpace()
+          && isValidDocument(request.resource.data) && authorizedWorkspace();
+        allow read: if authorizedWorkspace();
+        allow update: if isAuthenticatedAdmin()
+          && authorizedWorkspace()
+          && isValidDocument(request.resource.data)
+          // 作成日は変更されない
+          && request.resource.data.createdAt == resource.data.createdAt
+          // 更新日はサーバーの現在時刻で更新される
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if isAuthenticatedAdmin() && authorizedWorkspace()
+      }
+    }
   }
 }

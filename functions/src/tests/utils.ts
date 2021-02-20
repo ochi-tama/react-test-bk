@@ -1,5 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable no-console */
 import * as firebase from '@firebase/rules-unit-testing'
 import fb from 'firebase'
+import * as admin from 'firebase-admin'
 import 'firebase/firestore'
 import * as fs from 'fs'
 import * as http from 'http'
@@ -20,7 +23,12 @@ export type initUser = {
   email: string
   role: string
   photoURL?: string
-  tenant?: string[]
+  workspaces?: string[] | null
+}
+
+export type initWorkspace = {
+  name: string
+  member_num: number
 }
 
 export const loadFirestoreRules = async (projectId: string): Promise<void> => {
@@ -62,8 +70,11 @@ export const getFiresbaseByUserAndProjectId = (
 ): fb.app.App => {
   const app = firebase.initializeTestApp({
     projectId: projectId,
-    auth: { ...user },
+    auth: {
+      ...user,
+    },
   })
+
   return app
 }
 
@@ -73,20 +84,41 @@ export const getFirestoreByUserAndProjectId = (
 ): fb.firestore.Firestore => {
   const app = firebase.initializeTestApp({
     projectId: projectId,
-    auth: { ...user },
+    auth: {
+      ...user,
+    },
   })
+
   return app.firestore()
 }
 
-export const createUserDocument = (user: initUser): User => {
+export const createUserData = (user: initUser): User => {
   return {
     name: user.uid,
     email: user.email,
     role: user.role,
     affilication: null,
-    tenant: user.tenant ? user.tenant : [],
+    workspaces: user.workspaces ? user.workspaces : [],
+    photoURL: 'aiueo.html',
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     lastLoginDate: firebase.firestore.FieldValue.serverTimestamp(),
   }
+}
+
+export const insertWorkspaceDocumentByAdmin = async (
+  projectId: string,
+  workspace: initWorkspace
+): Promise<void> => {
+  const adminApp = getAdminFirebase(projectId)
+  // FieldValueはAdminとClientで使い分ける必要がある
+  await adminApp
+    .firestore()
+    .collection('workspaces')
+    .doc(workspace.name)
+    .set({
+      ...workspace,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    })
 }

@@ -1,3 +1,5 @@
+import firebase from 'firebase/app'
+import 'firebase/firestore'
 export type TestDocument = {
   uid: string
   name: string
@@ -6,15 +8,18 @@ export type TestDocument = {
   filePath: string
   pdfPath: string
   type: string
+  createdAt: firebase.firestore.FieldValue
+  updatedAt: firebase.firestore.FieldValue
   /*
-  createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-  updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-  lastUpdatedBy: firestore.DocumentReference // User
+  lastUpdatedBy: {
+    name:
+    firebase.firestore.DocumentReference
+  }
   */
   analyzeStatus?: {
-    managedId?: string
-    htmlPath?: string
-    parsedHtmlPath?: string
+    managedId: string
+    htmlPath: string
+    parsedHtmlPath: string
   }
 }
 export const testDoc1 = {
@@ -25,12 +30,8 @@ export const testDoc1 = {
   filePath: '/tmp/tmp2',
   pdfPath: '/tmp/tmp3',
   type: 'pptx',
-
-  /*
   createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-  lastUpdatedBy: firestore.DocumentReference // User
-  */
   analyzeStatus: {
     managedId: 'tmpdocid1',
     htmlPath: '/fasfa/asfasf/asdfa.html',
@@ -46,11 +47,8 @@ export const testDoc2 = {
   filePath: '/tmp/tmp2',
   pdfPath: '/tmp/tmp3',
   type: 'pptx',
-  /*
   createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-  lastUpdatedBy: firestore.DocumentReference // User
-  */
   analyzeStatus: {
     managedId: 'tmpdocid2',
     htmlPath: '/fasfa/asfasf/asdfa.html',
