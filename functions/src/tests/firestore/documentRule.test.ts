@@ -8,7 +8,6 @@ import {
   testDoc2,
   TestDocument,
 } from '../data/testDocument'
-import { WorkspaceA, WorkspaceB } from '../data/testWorkspace'
 import {
   mainAdmin,
   mainUser,
@@ -21,7 +20,6 @@ import {
   getFiresbaseByUserAndProjectId,
   // getAdminFirebase,
   getFirestoreByUserAndProjectId,
-  insertWorkspaceDocumentByAdmin,
   initUser,
   initWorkspace,
   insertWorkspaceDocumentByAdmin,
