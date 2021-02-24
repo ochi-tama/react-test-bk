@@ -1,29 +1,28 @@
-import firebase from 'firebase/app'
-import 'firebase/firestore'
+import * as firebase from 'firebase-admin'
 type Document = {
   name: string
   tags?: string[]
   size: number
   filePath: string
   pdfPath?: string | null
-  type: string // docx, pptx, pdf
+  type: string | undefined // docx, pptx, pdf
   createdAt: firebase.firestore.FieldValue
   updatedAt: firebase.firestore.FieldValue
   lastUpdatedBy: {
     name: string
-    ref: firebase.firestore.DocumentReference // User
+    ref: firebase.firestore.DocumentReference<firebase.firestore.DocumentData> // User
   }
   analyzeStatus?: {
-    managedId?: string
-    htmlPath?: string
-    parsedHtmlPath?: string
+    managedId?: string | null
+    htmlPath?: string | null
+    parsedHtmlPath?: string | null
   }
 }
 
 type AnalyzeStatus = {
-  managedId?: string
-  htmlPath?: string
-  parsedHtmlPath?: string
+  managedId?: string | null
+  htmlPath?: string | null
+  parsedHtmlPath?: string | null
 }
 
 export { Document, AnalyzeStatus }

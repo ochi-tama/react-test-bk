@@ -31,7 +31,11 @@ describe('User のログイン時のテスト', () => {
     })
 
     test('onCreateDocの正常動作確認', async () => {
-      await createUserDoc(mainAdmin.uid, mainAdmin.email, mainAdmin.uid)
+      await createUserDoc({
+        uid: mainAdmin.uid,
+        email: mainAdmin.email,
+        name: mainAdmin.uid,
+      })
       const result = await db.doc(`/users/${mainAdmin.uid}`).get()
       const userDoc = result.data() as User
 

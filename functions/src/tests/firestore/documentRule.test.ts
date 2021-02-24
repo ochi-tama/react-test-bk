@@ -1,6 +1,7 @@
 /* eslint-disable jest/expect-expect */
 /* eslint-disable jest/no-commented-out-tests */
 import * as firebase from '@firebase/rules-unit-testing'
+import * as admin from 'firebase-admin'
 import { Document } from '../../Schema/Document'
 import {
   testDoc1 /*,testDocumentList*/,
@@ -13,15 +14,17 @@ import {
   mainUser,
   otherAdmin /*, subAdmin, subUser*/,
 } from '../data/testUser'
+import { WorkspaceA, WorkspaceB } from '../data/testWorkspace'
 import {
   createUserData,
-  initWorkspace,
   generateCoverageHtml,
   getFiresbaseByUserAndProjectId,
   // getAdminFirebase,
   getFirestoreByUserAndProjectId,
   insertWorkspaceDocumentByAdmin,
   initUser,
+  initWorkspace,
+  insertWorkspaceDocumentByAdmin,
   loadFirestoreRules,
 } from '../utils'
 
@@ -52,7 +55,12 @@ const insertDocument = async (
   { uid, ...data }: TestDocument
 ) => {
   const app = getFirebaseByUser(user)
-  const userRef = app.firestore().collection('users').doc(user.uid)
+  const userRef = (app
+    .firestore()
+    .collection('users')
+    .doc(
+      user.uid
+    ) as unknown) as admin.firestore.DocumentReference<admin.firestore.DocumentData>
   // TODO: 後でmockをつかう
   const insertData: Document = {
     ...data,
